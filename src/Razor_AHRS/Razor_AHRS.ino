@@ -1,6 +1,3 @@
-#include <MPU9250_RegisterMap.h>
-#include <SparkFunMPU9250-DMP.h>
-
 /***************************************************************************************************************
 * Razor AHRS Firmware v1.4.2.2
 * 9 Degree of Measurement Attitude and Heading Reference System
@@ -380,8 +377,9 @@ int num_gyro_errors = 0;
 
 #if HW__VERSION_CODE == 14001
 
-#define MPU9250_INT_PIN 4
+#include <SparkFunMPU9250-DMP.h>
 
+#define MPU9250_INT_PIN 4
 #define DMP_SAMPLE_RATE    100 // Logging/DMP sample rate(4-200 Hz)
 #define IMU_COMPASS_SAMPLE_RATE 100 // Compass sample rate (4-100 Hz)
 #define IMU_AG_SAMPLE_RATE 100 // Accel/gyro sample rate Must be between 4Hz and 1kHz
@@ -390,6 +388,7 @@ int num_gyro_errors = 0;
 #define IMU_AG_LPF         5 // Accel/Gyro LPF corner frequency (5, 10, 20, 42, 98, or 188 Hz)
 #define ENABLE_GYRO_CALIBRATION true
 #define ENABLE_MAG_LOG        true
+#define Serial SERIAL_PORT_USBVIRTUAL
 
 MPU9250_DMP imu;
 
@@ -428,12 +427,12 @@ void read_sensors() {
   imu.calcQuat(imu.qx);
   imu.calcQuat(imu.qy);
   imu.calcQuat(imu.qz);
-
-  imu.computeEulerAngles();
-  imu.pitch;
-  imu.roll;
-  imu.yaw;
   */
+  
+  imu.computeEulerAngles();
+  pitch = TO_RAD(imu.pitch);
+  roll  = TO_RAD(imu.roll );
+  yaw   = TO_RAD(imu.yaw  );
 }
 
 bool initIMU(void)
@@ -621,6 +620,7 @@ void setup()
   digitalWrite(STATUS_LED_PIN, LOW);
 
 #if HW__VERSION_CODE == 14001
+  pinMode(MPU9250_INT_PIN, INPUT_PULLUP);
   initIMU();
 #else
   // Init sensors
@@ -927,6 +927,7 @@ void loop()
     }
     else if (output_mode == OUTPUT__MODE_ANGLES)  // Output angles
     {
+#if HW__VERSION_CODE != 14001
       // Apply sensor calibration
       compensate_sensor_errors();
     
@@ -936,11 +937,12 @@ void loop()
       Normalize();
       Drift_correction();
       Euler_angles();
-      
+#endif
       if (output_stream_on || output_single_on) output_angles();
     }
     else if (output_mode == OUTPUT__MODE_ANGLES_AG_SENSORS)  // Output angles + accel + rot. vel
     {
+#if HW__VERSION_CODE != 14001
       // Apply sensor calibration
       compensate_sensor_errors();
     
@@ -950,7 +952,7 @@ void loop()
       Normalize();
       Drift_correction();
       Euler_angles();
-      
+#endif
       if (output_stream_on || output_single_on) output_both_angles_and_sensors_text();
     }
     else  // Output sensor values
