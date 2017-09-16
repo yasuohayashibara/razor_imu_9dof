@@ -919,6 +919,15 @@ void loop()
 
     // Update sensor readings
     read_sensors();
+#if HW__VERSION_CODE == 14001
+    Gyro_Vector[0]=gyro[0]; //gyro x roll
+    Gyro_Vector[1]=gyro[1]; //gyro y pitch
+    Gyro_Vector[2]=gyro[2]; //gyro z yaw
+    
+    Accel_Vector[0]=accel[0];
+    Accel_Vector[1]=accel[1];
+    Accel_Vector[2]=accel[2];
+#endif
 
     if (output_mode == OUTPUT__MODE_CALIBRATE_SENSORS)  // We're in calibration mode
     {
