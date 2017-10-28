@@ -209,11 +209,11 @@
 #define OUTPUT__FORMAT_BINARY 1 // Outputs data as binary float
 
 // Select your startup output mode and format here!
-int output_mode = OUTPUT__MODE_ANGLES;
+int output_mode = OUTPUT__MODE_ANGLES_AG_SENSORS;
 int output_format = OUTPUT__FORMAT_TEXT;
 
 // Select if serial continuous streaming output is enabled per default on startup.
-#define OUTPUT__STARTUP_STREAM_ON false  // true or false
+#define OUTPUT__STARTUP_STREAM_ON true  // true or false
 
 // If set true, an error message will be output if we fail to read sensor data.
 // Message format: "!ERR: reading <sensor>", followed by "\r\n".
@@ -380,9 +380,9 @@ int num_gyro_errors = 0;
 #include <SparkFunMPU9250-DMP.h>
 
 #define MPU9250_INT_PIN 4
-#define DMP_SAMPLE_RATE    100 // Logging/DMP sample rate(4-200 Hz)
-#define IMU_COMPASS_SAMPLE_RATE 100 // Compass sample rate (4-100 Hz)
-#define IMU_AG_SAMPLE_RATE 100 // Accel/gyro sample rate Must be between 4Hz and 1kHz
+#define DMP_SAMPLE_RATE    (1000/OUTPUT__DATA_INTERVAL) // Logging/DMP sample rate(4-200 Hz)
+#define IMU_COMPASS_SAMPLE_RATE (1000/OUTPUT__DATA_INTERVAL) // Compass sample rate (4-100 Hz)
+#define IMU_AG_SAMPLE_RATE (1000/OUTPUT__DATA_INTERVAL) // Accel/gyro sample rate Must be between 4Hz and 1kHz
 #define IMU_GYRO_FSR       2000 // Gyro full-scale range (250, 500, 1000, or 2000)
 #define IMU_ACCEL_FSR      2 // Accel full-scale range (2, 4, 8, or 16)
 #define IMU_AG_LPF         5 // Accel/Gyro LPF corner frequency (5, 10, 20, 42, 98, or 188 Hz)
@@ -399,40 +399,37 @@ bool enableCompass = ENABLE_MAG_LOG;
 
 void read_sensors() {
   // Then check IMU for new data, and log it
-  if ( !imu.fifoAvailable() ) // If no new data is available
-    return;                   // return to the top of the loop
-
-  // Read from the digital motion processor's FIFO
-  if ( imu.dmpUpdateFifo() != INV_SUCCESS )
-    return; // If that fails (uh, oh), return to top
-
-  // If enabled, read from the compass.
-  if ( enableCompass && (imu.updateCompass() != INV_SUCCESS) )
-    return; // If compass read fails (uh, oh) return to top
-
-  accel[0] = imu.calcAccel(imu.ax);
-  accel[1] = imu.calcAccel(imu.ay);
-  accel[2] = imu.calcAccel(imu.az);
-
-  gyro[0] = imu.calcGyro(imu.gx);
-  gyro[1] = imu.calcGyro(imu.gy);
-  gyro[2] = imu.calcGyro(imu.gz);
-
-  magnetom[0] = imu.calcMag(imu.mx);
-  magnetom[1] = imu.calcMag(imu.my);
-  magnetom[2] = imu.calcMag(imu.mz);
-
-  /*
-  imu.calcQuat(imu.qw);
-  imu.calcQuat(imu.qx);
-  imu.calcQuat(imu.qy);
-  imu.calcQuat(imu.qz);
-  */
-  
-  imu.computeEulerAngles();
-  pitch = TO_RAD(imu.pitch);
-  roll  = TO_RAD(imu.roll );
-  yaw   = TO_RAD(imu.yaw  );
+  while ( imu.fifoAvailable() )
+  {
+    // Read from the digital motion processor's FIFO
+    if ( imu.dmpUpdateFifo() == INV_SUCCESS )
+    {
+      imu.computeEulerAngles();
+      pitch = TO_RAD(imu.pitch);
+      roll  = TO_RAD(imu.roll );
+      yaw   = TO_RAD(imu.yaw  );
+      /*
+      imu.calcQuat(imu.qw);
+      imu.calcQuat(imu.qx);
+      imu.calcQuat(imu.qy);
+      imu.calcQuat(imu.qz);
+      */
+      
+      imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+      
+      accel[0] = imu.calcAccel(imu.ax);
+      accel[1] = imu.calcAccel(imu.ay);
+      accel[2] = imu.calcAccel(imu.az);
+    
+      gyro[0] = imu.calcGyro(imu.gx);
+      gyro[1] = imu.calcGyro(imu.gy);
+      gyro[2] = imu.calcGyro(imu.gz);
+    
+      magnetom[0] = imu.calcMag(imu.mx);
+      magnetom[1] = imu.calcMag(imu.my);
+      magnetom[2] = imu.calcMag(imu.mz);
+    }
+  }  
 }
 
 bool initIMU(void)
@@ -646,6 +643,8 @@ void setup()
 // Main loop
 void loop()
 {
+  if (Serial.available()) digitalWrite(STATUS_LED_PIN, HIGH);
+  else digitalWrite(STATUS_LED_PIN, LOW);
   // Read incoming control messages
   if (Serial.available() >= 2)
   {
